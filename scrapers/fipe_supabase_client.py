@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SUPABASE CLIENT - FIPE
+SUPABASE CLIENT - FIPE (COM DEBUG DETALHADO)
 Client otimizado para enviar dados da FIPE ao Supabase
 """
 
@@ -30,10 +30,7 @@ class FipeSupabaseClient:
             'Prefer': 'return=minimal'
         }
         
-        # Session com connection pooling e retry
         self.session = self._create_session()
-        
-        # Cache de disponibilidade da função RPC
         self._rpc_available = None
         self._check_rpc_availability()
     
@@ -77,7 +74,8 @@ class FipeSupabaseClient:
             if self._rpc_available:
                 print("✅ RPC upsert_fipe_vehicles disponível (modo otimizado)")
             else:
-                print("⚠️  RPC não disponível - execute o SQL de instalação")
+                print(f"⚠️  RPC indisponível - Status {r.status_code}")
+                print(f"   Resposta: {r.text[:200]}")
                 
         except Exception as e:
             print(f"⚠️  Erro ao verificar RPC: {e}")
@@ -95,7 +93,6 @@ class FipeSupabaseClient:
         
         start_time = time.time()
         
-        # Se RPC disponível, usar (mais rápido)
         if self._rpc_available:
             stats = self._upsert_via_rpc(items)
         else:
@@ -107,7 +104,7 @@ class FipeSupabaseClient:
         return stats
     
     def _upsert_via_rpc(self, items: List[Dict]) -> Dict[str, int]:
-        """Método otimizado usando RPC"""
+        """Método otimizado usando RPC (COM DEBUG)"""
         url = f"{self.url}/rest/v1/rpc/upsert_fipe_vehicles"
         
         stats = {'inserted': 0, 'updated': 0, 'errors': 0}
@@ -128,6 +125,22 @@ class FipeSupabaseClient:
                     timeout=120
                 )
                 
+                # ====== DEBUG DETALHADO ======
+                if r.status_code != 200:
+                    print(f"\n❌ ERRO NO BATCH {batch_num}:")
+                    print(f"   Status: {r.status_code}")
+                    print(f"   Resposta: {r.text[:500]}")
+                    
+                    # Mostra exemplo do primeiro item do batch
+                    if batch:
+                        print(f"\n   📋 Exemplo de item (primeiro do batch):")
+                        import json
+                        print(f"   {json.dumps(batch[0], indent=2, ensure_ascii=False)[:300]}")
+                    
+                    stats['errors'] += len(batch)
+                    continue
+                # ============================
+                
                 if r.status_code == 200:
                     result = r.json()
                     stats['inserted'] += result.get('inserted', 0)
@@ -138,12 +151,10 @@ class FipeSupabaseClient:
                     print(f"   ✅ [{progress:3.0f}%] Batch {batch_num}/{total_batches}: "
                           f"+{result.get('inserted', 0)} novos, "
                           f"~{result.get('updated', 0)} atualizados")
-                else:
-                    print(f"   ❌ Batch {batch_num}: HTTP {r.status_code}")
-                    stats['errors'] += len(batch)
                     
             except Exception as e:
-                print(f"   ❌ Batch {batch_num}: {str(e)[:100]}")
+                print(f"\n❌ EXCEÇÃO no Batch {batch_num}:")
+                print(f"   {str(e)[:300]}")
                 stats['errors'] += len(batch)
         
         total = stats['inserted'] + stats['updated'] + stats['errors']
@@ -156,7 +167,7 @@ class FipeSupabaseClient:
         return stats
     
     def _upsert_fallback(self, items: List[Dict]) -> Dict[str, int]:
-        """Fallback sem RPC (mais lento)"""
+        """Fallback sem RPC (mais lento, COM DEBUG)"""
         url = f"{self.url}/rest/v1/fipe_vehicles"
         
         upsert_headers = self.headers.copy()
@@ -165,8 +176,11 @@ class FipeSupabaseClient:
         stats = {'inserted': 0, 'updated': 0, 'errors': 0}
         batch_size = 200
         
+        print(f"📦 Processando {len(items)} veículos (fallback mode)")
+        
         for i in range(0, len(items), batch_size):
             batch = items[i:i+batch_size]
+            batch_num = (i // batch_size) + 1
             
             try:
                 r = self.session.post(
@@ -176,15 +190,28 @@ class FipeSupabaseClient:
                     timeout=30
                 )
                 
+                # ====== DEBUG DETALHADO ======
+                if r.status_code not in (200, 201):
+                    print(f"\n❌ ERRO NO BATCH {batch_num}:")
+                    print(f"   Status: {r.status_code}")
+                    print(f"   Resposta: {r.text[:500]}")
+                    
+                    if batch:
+                        import json
+                        print(f"\n   📋 Exemplo de item:")
+                        print(f"   {json.dumps(batch[0], indent=2, ensure_ascii=False)[:300]}")
+                    
+                    stats['errors'] += len(batch)
+                    continue
+                # ============================
+                
                 if r.status_code in (200, 201):
                     stats['inserted'] += len(batch)
-                    print(f"   ✅ Batch {i//batch_size + 1}: {len(batch)} processados")
-                else:
-                    print(f"   ⚠️  Batch {i//batch_size + 1}: Status {r.status_code}")
-                    stats['errors'] += len(batch)
+                    print(f"   ✅ Batch {batch_num}: {len(batch)} processados")
                     
             except Exception as e:
-                print(f"   ❌ Erro: {str(e)[:100]}")
+                print(f"\n❌ EXCEÇÃO no Batch {batch_num}:")
+                print(f"   {str(e)[:300]}")
                 stats['errors'] += len(batch)
         
         return stats
@@ -215,10 +242,6 @@ class FipeSupabaseClient:
             self.session.close()
 
 
-# ============================================================
-# EXEMPLO DE USO
-# ============================================================
-
 if __name__ == "__main__":
     # Teste básico
     import json
@@ -226,18 +249,18 @@ if __name__ == "__main__":
     
     client = FipeSupabaseClient()
     
-    # Carrega JSON de exemplo
     json_file = Path("fipe_caminhoes.json")
     
     if json_file.exists():
-        print(f"📁 Carregando {json_file}...")
+        print(f"📄 Carregando {json_file}...")
         with open(json_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
         print(f"📋 {len(data)} veículos encontrados")
         
-        # Envia para Supabase
-        result = client.upsert_vehicles(data)
+        # Testa com apenas 5 veículos primeiro
+        print("\n🧪 TESTE: Enviando apenas 5 veículos...")
+        result = client.upsert_vehicles(data[:5])
         
         print(f"\n✅ Concluído em {result['time_ms']}ms")
     else:
