@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-FIPE SCRAPER - MOTOS
-Extrai tabela FIPE de motos e envia para Supabase
+FIPE SCRAPER - MOTOS (VERSÃO ROBUSTA)
+Extrai tabela FIPE com delays e retry inteligentes
 """
 
 import json
 import requests
+import time
+import random
 from datetime import datetime
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from fipe_supabase_client import FipeSupabaseClient
 
 # Config
@@ -18,18 +19,61 @@ FIPE_API = "https://veiculos.fipe.org.br/api/veiculos"
 
 HEADERS = {
     "Referer": "https://veiculos.fipe.org.br/",
-    "User-Agent": "Mozilla/5.0",
-    "Content-Type": "application/json"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Content-Type": "application/json",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Origin": "https://veiculos.fipe.org.br"
 }
 
+# Delays configuráveis
+DELAY_BETWEEN_REQUESTS = 0.5  # delay base entre requests
+DELAY_BETWEEN_MODELS = 0.3    # delay entre modelos
+DELAY_BETWEEN_BRANDS = 2.0    # delay entre marcas
+MAX_RETRIES = 5                # tentativas máximas
 
-def request_api(endpoint, data):
-    """Faz request na API FIPE"""
-    try:
-        r = requests.post(f"{FIPE_API}/{endpoint}", json=data, headers=HEADERS, timeout=30)
-        return r.json() if r.status_code == 200 else None
-    except:
-        return None
+
+def request_api(endpoint, data, retries=MAX_RETRIES):
+    """Faz request na API FIPE com retry exponencial"""
+    for attempt in range(retries):
+        try:
+            if attempt > 0:
+                wait = (2 ** attempt) + random.uniform(0, 1)
+                print(f"      ⏳ Retry {attempt}/{retries} após {wait:.1f}s...")
+                time.sleep(wait)
+            
+            r = requests.post(
+                f"{FIPE_API}/{endpoint}", 
+                json=data, 
+                headers=HEADERS, 
+                timeout=30
+            )
+            
+            if r.status_code == 429:
+                print(f"      ⚠️  Rate limit detectado (429)")
+                time.sleep(5 + random.uniform(0, 2))
+                continue
+            
+            if r.status_code == 500:
+                print(f"      ⚠️  Erro do servidor (500)")
+                time.sleep(3)
+                continue
+            
+            if r.status_code == 200:
+                time.sleep(DELAY_BETWEEN_REQUESTS + random.uniform(0, 0.2))
+                return r.json()
+            
+            print(f"      ⚠️  Status {r.status_code}: {r.text[:100]}")
+            
+        except requests.exceptions.Timeout:
+            print(f"      ⏱️  Timeout na tentativa {attempt+1}")
+        except requests.exceptions.ConnectionError:
+            print(f"      🔌 Erro de conexão na tentativa {attempt+1}")
+        except Exception as e:
+            print(f"      ❌ Erro: {str(e)[:80]}")
+    
+    print(f"      ❌ Falhou após {retries} tentativas")
+    return None
 
 
 def get_ref_table():
@@ -59,17 +103,27 @@ def get_modelos(marca, ref):
         "codigoTabelaReferencia": ref,
         "codigoMarca": marca
     })
-    return data.get('Modelos', []) if data else []
+    
+    modelos = data.get('Modelos', []) if data else []
+    
+    if not modelos:
+        print(f"      ⚠️  Nenhum modelo encontrado")
+    
+    return modelos
 
 
 def get_anos(marca, modelo, ref):
     """Lista anos do modelo"""
-    return request_api("ConsultarAnoModelo", {
+    anos = request_api("ConsultarAnoModelo", {
         "codigoTipoVeiculo": 2,
         "codigoTabelaReferencia": ref,
         "codigoMarca": marca,
         "codigoModelo": modelo
     }) or []
+    
+    time.sleep(DELAY_BETWEEN_MODELS + random.uniform(0, 0.1))
+    
+    return anos
 
 
 def get_preco(marca, modelo, ano_cod, ref):
@@ -89,7 +143,6 @@ def get_preco(marca, modelo, ano_cod, ref):
     if not data:
         return None
     
-    # Parse do valor
     valor_text = data.get('Valor', '')
     valor = None
     if valor_text:
@@ -118,16 +171,37 @@ def salvar_json(veiculos):
         json.dump(veiculos, f, ensure_ascii=False, indent=2)
 
 
-def process_ano(args):
-    """Processa um ano (paralelo)"""
-    marca_cod, modelo_cod, ano, ref = args
-    return get_preco(marca_cod, modelo_cod, ano['Value'], ref)
+def process_modelo_sequencial(marca_cod, modelo, ref):
+    """Processa um modelo completo SEQUENCIALMENTE"""
+    modelo_nome = modelo['Label']
+    modelo_cod = modelo['Value']
+    
+    anos = get_anos(marca_cod, modelo_cod, ref)
+    
+    if not anos:
+        return []
+    
+    veiculos_modelo = []
+    
+    for ano in anos:
+        resultado = get_preco(marca_cod, modelo_cod, ano['Value'], ref)
+        if resultado:
+            veiculos_modelo.append(resultado)
+    
+    return veiculos_modelo
 
 
 def main():
     print("="*60)
-    print("🏍️  FIPE SCRAPER - MOTOS")
+    print("🏍️  FIPE SCRAPER - MOTOS (VERSÃO ROBUSTA)")
     print("="*60)
+    
+    print(f"\n⚙️  CONFIGURAÇÃO:")
+    print(f"   • Delay entre requests: {DELAY_BETWEEN_REQUESTS}s")
+    print(f"   • Delay entre modelos: {DELAY_BETWEEN_MODELS}s")
+    print(f"   • Delay entre marcas: {DELAY_BETWEEN_BRANDS}s")
+    print(f"   • Max retries: {MAX_RETRIES}")
+    print()
     
     ref = get_ref_table()
     if not ref:
@@ -141,78 +215,90 @@ def main():
     
     veiculos = []
     total_marcas = len(marcas)
+    start_time = time.time()
     
     for idx_marca, marca in enumerate(marcas, 1):
         marca_nome = marca['Label']
         marca_cod = marca['Value']
         
-        print(f"\n[{idx_marca}/{total_marcas}] 🏭 {marca_nome}")
+        elapsed = time.time() - start_time
+        eta_per_brand = elapsed / idx_marca if idx_marca > 0 else 0
+        eta_remaining = eta_per_brand * (total_marcas - idx_marca)
+        
+        print(f"\n{'='*60}")
+        print(f"[{idx_marca}/{total_marcas}] 🏭 {marca_nome}")
+        print(f"⏱️  Tempo decorrido: {elapsed/60:.1f}min | ETA: {eta_remaining/60:.1f}min")
+        print(f"{'='*60}")
         
         modelos = get_modelos(marca_cod, ref)
-        print(f"   📋 {len(modelos)} modelos")
+        print(f"   📋 {len(modelos)} modelos encontrados")
+        
+        if not modelos:
+            print(f"   ⚠️  Pulando marca (sem modelos)")
+            time.sleep(DELAY_BETWEEN_BRANDS)
+            continue
         
         veiculos_marca = []
         
-        for modelo in modelos:
+        for idx_modelo, modelo in enumerate(modelos, 1):
             modelo_nome = modelo['Label']
-            modelo_cod = modelo['Value']
             
-            anos = get_anos(marca_cod, modelo_cod, ref)
+            print(f"      [{idx_modelo}/{len(modelos)}] {modelo_nome}...", end=" ")
             
-            if not anos:
-                continue
-            
-            # Processa anos em paralelo
-            with ThreadPoolExecutor(max_workers=5) as executor:
-                tasks = [
-                    (marca_cod, modelo_cod, ano, ref)
-                    for ano in anos
-                ]
+            try:
+                veiculos_modelo = process_modelo_sequencial(marca_cod, modelo, ref)
                 
-                futures = [executor.submit(process_ano, task) for task in tasks]
-                
-                for future in as_completed(futures):
-                    try:
-                        resultado = future.result()
-                        if resultado:
-                            veiculos.append(resultado)
-                            veiculos_marca.append(resultado)
-                    except:
-                        pass
-            
-            print(f"      ✅ {modelo_nome}: {len(anos)} anos")
+                if veiculos_modelo:
+                    veiculos.extend(veiculos_modelo)
+                    veiculos_marca.extend(veiculos_modelo)
+                    print(f"✅ {len(veiculos_modelo)} veículos")
+                else:
+                    print(f"⚠️  0 veículos")
+                    
+            except Exception as e:
+                print(f"❌ Erro: {str(e)[:60]}")
         
-        print(f"   📊 {marca_nome}: +{len(veiculos_marca)} veículos | Total geral: {len(veiculos)}")
+        print(f"\n   📊 {marca_nome}: +{len(veiculos_marca)} veículos | Total geral: {len(veiculos)}")
         
-        # Salva a cada marca
         salvar_json(veiculos)
-        print(f"   💾 Salvou {len(veiculos)} motos em {OUTPUT_FILE}")
+        print(f"   💾 Backup salvo: {len(veiculos)} motos em {OUTPUT_FILE}")
+        
+        if idx_marca < total_marcas:
+            print(f"   ⏳ Aguardando {DELAY_BETWEEN_BRANDS}s antes da próxima marca...")
+            time.sleep(DELAY_BETWEEN_BRANDS)
+    
+    total_time = time.time() - start_time
     
     print(f"\n{'='*60}")
-    print(f"✅ SCRAPING CONCLUÍDO: {len(veiculos)} motos")
+    print(f"✅ SCRAPING CONCLUÍDO")
+    print(f"   • Total de veículos: {len(veiculos)}")
+    print(f"   • Tempo total: {total_time/60:.1f} minutos")
+    print(f"   • Média por marca: {total_time/total_marcas:.1f}s")
     print(f"💾 JSON salvo em: {OUTPUT_FILE}")
     print(f"{'='*60}")
     
-    # Envia para Supabase
-    print(f"\n{'='*60}")
-    print("🚀 ENVIANDO PARA SUPABASE...")
-    print(f"{'='*60}")
-    
-    try:
-        client = FipeSupabaseClient()
-        result = client.upsert_vehicles(veiculos)
-        
+    if len(veiculos) > 0:
         print(f"\n{'='*60}")
-        print(f"✅ UPLOAD CONCLUÍDO")
-        print(f"   • {result['inserted']} novos registros")
-        print(f"   • {result['updated']} atualizados")
-        print(f"   • {result['errors']} erros")
-        print(f"   • Tempo: {result['time_ms']}ms")
+        print("🚀 ENVIANDO PARA SUPABASE...")
         print(f"{'='*60}")
         
-    except Exception as e:
-        print(f"❌ Erro ao enviar para Supabase: {e}")
-        print("   (JSON salvo localmente)")
+        try:
+            client = FipeSupabaseClient()
+            result = client.upsert_vehicles(veiculos)
+            
+            print(f"\n{'='*60}")
+            print(f"✅ UPLOAD CONCLUÍDO")
+            print(f"   • {result['inserted']} novos registros")
+            print(f"   • {result['updated']} atualizados")
+            print(f"   • {result['errors']} erros")
+            print(f"   • Tempo: {result['time_ms']}ms")
+            print(f"{'='*60}")
+            
+        except Exception as e:
+            print(f"❌ Erro ao enviar para Supabase: {e}")
+            print("   (JSON salvo localmente)")
+    else:
+        print("\n⚠️  Nenhum veículo coletado - não enviando para Supabase")
 
 
 if __name__ == "__main__":
