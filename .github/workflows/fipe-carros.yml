@@ -1,0 +1,90 @@
+# ===== fipe-carros.yml =====
+# FIPE - Carros (~30.000 veículos)
+# Execução: 3:00 UTC = 00:00 BRT (meia-noite no Brasil)
+# Timeout: 85min (~1h20min estimado)
+
+name: FIPE - Carros
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # TODO DIA às 3:00 UTC = 00:00 BRT
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Dependencies
+        run: |
+          pip install requests urllib3
+      
+      - name: Run FIPE Carros Scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          cd scrapers
+          echo "======================================"
+          echo "🚗 FIPE - CARROS"
+          echo "======================================"
+          echo "📅 Início: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🇧🇷 Horário Brasil: $(TZ='America/Sao_Paulo' date '+%Y-%m-%d %H:%M:%S BRT')"
+          echo "📦 Processando ~195 marcas de carros"
+          echo "⏱️  Timeout: 85min (~1h20min estimado)"
+          echo "======================================"
+          echo ""
+          
+          START=$(date +%s)
+          
+          python fipe_carros.py
+          
+          EXIT_CODE=$?
+          END=$(date +%s)
+          DURATION=$(( (END - START) / 60 ))
+          
+          echo ""
+          echo "======================================"
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "✅ FIPE CARROS CONCLUÍDO em ${DURATION} minutos"
+          else
+            echo "❌ FIPE CARROS FALHOU (código $EXIT_CODE) após ${DURATION} minutos"
+          fi
+          echo "🕐 Término: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🇧🇷 Horário Brasil: $(TZ='America/Sao_Paulo' date '+%Y-%m-%d %H:%M:%S BRT')"
+          echo "======================================"
+          
+          exit $EXIT_CODE
+      
+      - name: Upload Artifacts on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fipe-carros-json-${{ github.run_number }}
+          path: scrapers/fipe_carros.json
+          retention-days: 7
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 🚗 FIPE - Carros" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Horário UTC:** $(date -u '+%Y-%m-%d %H:%M')" >> $GITHUB_STEP_SUMMARY
+          echo "**Horário Brasil:** $(TZ='America/Sao_Paulo' date '+%Y-%m-%d %H:%M')" >> $GITHUB_STEP_SUMMARY
+          echo "**Tipo:** Carros (~30.000 veículos)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ Scraping concluído e enviado ao Supabase!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Falhou – JSON salvo nos artifacts." >> $GITHUB_STEP_SUMMARY
+          fi
