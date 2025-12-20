@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-FIPE SCRAPER - CAMINHÕES (VERSÃO ROBUSTA)
-Extrai tabela FIPE com delays e retry inteligentes
+FIPE SCRAPER - CAMINHÕES (VERSÃO ROBUSTA COM UPLOAD INCREMENTAL)
+Extrai tabela FIPE e faz upload a cada marca processada
 """
 
 import json
@@ -27,10 +27,10 @@ HEADERS = {
 }
 
 # Delays configuráveis
-DELAY_BETWEEN_REQUESTS = 0.5  # delay base entre requests
-DELAY_BETWEEN_MODELS = 0.3    # delay entre modelos
-DELAY_BETWEEN_BRANDS = 2.0    # delay entre marcas
-MAX_RETRIES = 5                # tentativas máximas
+DELAY_BETWEEN_REQUESTS = 0.5
+DELAY_BETWEEN_MODELS = 0.3
+DELAY_BETWEEN_BRANDS = 2.0
+MAX_RETRIES = 5
 
 
 def request_api(endpoint, data, retries=MAX_RETRIES):
@@ -86,12 +86,11 @@ def get_marcas(ref):
     """Lista marcas de caminhões"""
     data = request_api("ConsultarMarcas", {
         "codigoTabelaReferencia": ref,
-        "codigoTipoVeiculo": 3  # Caminhões
+        "codigoTipoVeiculo": 3
     })
     
     if not data:
         print(f"   ⚠️  API retornou vazio para caminhões")
-        print(f"   Ref: {ref}")
     
     return data or []
 
@@ -171,8 +170,22 @@ def salvar_json(veiculos):
         json.dump(veiculos, f, ensure_ascii=False, indent=2)
 
 
+def upload_para_supabase(veiculos):
+    """Faz upload incremental para Supabase"""
+    if not veiculos:
+        return {'inserted': 0, 'updated': 0, 'errors': 0}
+    
+    try:
+        client = FipeSupabaseClient()
+        result = client.upsert_vehicles(veiculos)
+        return result
+    except Exception as e:
+        print(f"      ❌ Erro no upload: {str(e)[:100]}")
+        return {'inserted': 0, 'updated': 0, 'errors': len(veiculos)}
+
+
 def process_modelo_sequencial(marca_cod, modelo, ref):
-    """Processa um modelo completo SEQUENCIALMENTE"""
+    """Processa um modelo completo"""
     modelo_nome = modelo['Label']
     modelo_cod = modelo['Value']
     
@@ -193,14 +206,14 @@ def process_modelo_sequencial(marca_cod, modelo, ref):
 
 def main():
     print("="*60)
-    print("🚚 FIPE SCRAPER - CAMINHÕES (VERSÃO ROBUSTA)")
+    print("🚚 FIPE SCRAPER - CAMINHÕES (UPLOAD INCREMENTAL)")
     print("="*60)
     
     print(f"\n⚙️  CONFIGURAÇÃO:")
     print(f"   • Delay entre requests: {DELAY_BETWEEN_REQUESTS}s")
     print(f"   • Delay entre modelos: {DELAY_BETWEEN_MODELS}s")
     print(f"   • Delay entre marcas: {DELAY_BETWEEN_BRANDS}s")
-    print(f"   • Max retries: {MAX_RETRIES}")
+    print(f"   • Upload: A CADA MARCA processada")
     print()
     
     ref = get_ref_table()
@@ -211,11 +224,13 @@ def main():
     print(f"📅 Referência: {ref}")
     
     marcas = get_marcas(ref)
-    print(f"✅ {len(marcas)} marcas de caminhões")
+    print(f"✅ {len(marcas)} marcas de caminhões\n")
     
-    veiculos = []
+    veiculos_total = []
     total_marcas = len(marcas)
     start_time = time.time()
+    
+    stats_upload = {'inserted': 0, 'updated': 0, 'errors': 0}
     
     for idx_marca, marca in enumerate(marcas, 1):
         marca_nome = marca['Label']
@@ -225,16 +240,16 @@ def main():
         eta_per_brand = elapsed / idx_marca if idx_marca > 0 else 0
         eta_remaining = eta_per_brand * (total_marcas - idx_marca)
         
-        print(f"\n{'='*60}")
+        print(f"{'='*60}")
         print(f"[{idx_marca}/{total_marcas}] 🏭 {marca_nome}")
-        print(f"⏱️  Tempo decorrido: {elapsed/60:.1f}min | ETA: {eta_remaining/60:.1f}min")
+        print(f"⏱️  {elapsed/60:.1f}min | ETA: {eta_remaining/60:.1f}min")
         print(f"{'='*60}")
         
         modelos = get_modelos(marca_cod, ref)
-        print(f"   📋 {len(modelos)} modelos encontrados")
+        print(f"   📋 {len(modelos)} modelos")
         
         if not modelos:
-            print(f"   ⚠️  Pulando marca (sem modelos)")
+            print(f"   ⚠️  Pulando marca\n")
             time.sleep(DELAY_BETWEEN_BRANDS)
             continue
         
@@ -242,63 +257,54 @@ def main():
         
         for idx_modelo, modelo in enumerate(modelos, 1):
             modelo_nome = modelo['Label']
-            
             print(f"      [{idx_modelo}/{len(modelos)}] {modelo_nome}...", end=" ")
             
             try:
                 veiculos_modelo = process_modelo_sequencial(marca_cod, modelo, ref)
                 
                 if veiculos_modelo:
-                    veiculos.extend(veiculos_modelo)
                     veiculos_marca.extend(veiculos_modelo)
-                    print(f"✅ {len(veiculos_modelo)} veículos")
+                    print(f"✅ {len(veiculos_modelo)}")
                 else:
-                    print(f"⚠️  0 veículos")
+                    print(f"⚠️  0")
                     
             except Exception as e:
-                print(f"❌ Erro: {str(e)[:60]}")
+                print(f"❌ {str(e)[:40]}")
         
-        print(f"\n   📊 {marca_nome}: +{len(veiculos_marca)} veículos | Total geral: {len(veiculos)}")
+        # Upload da marca para Supabase
+        if veiculos_marca:
+            print(f"\n   📤 Enviando {len(veiculos_marca)} veículos para Supabase...")
+            result = upload_para_supabase(veiculos_marca)
+            
+            stats_upload['inserted'] += result.get('inserted', 0)
+            stats_upload['updated'] += result.get('updated', 0)
+            stats_upload['errors'] += result.get('errors', 0)
+            
+            print(f"   ✅ Upload: +{result.get('inserted', 0)} novos, "
+                  f"~{result.get('updated', 0)} atualizados")
+            
+            veiculos_total.extend(veiculos_marca)
         
-        salvar_json(veiculos)
-        print(f"   💾 Backup salvo: {len(veiculos)} caminhões em {OUTPUT_FILE}")
+        print(f"   📊 Marca: {len(veiculos_marca)} | Total: {len(veiculos_total)}")
+        
+        salvar_json(veiculos_total)
+        print(f"   💾 Backup JSON: {len(veiculos_total)} caminhões\n")
         
         if idx_marca < total_marcas:
-            print(f"   ⏳ Aguardando {DELAY_BETWEEN_BRANDS}s antes da próxima marca...")
             time.sleep(DELAY_BETWEEN_BRANDS)
     
     total_time = time.time() - start_time
     
     print(f"\n{'='*60}")
     print(f"✅ SCRAPING CONCLUÍDO")
-    print(f"   • Total de veículos: {len(veiculos)}")
-    print(f"   • Tempo total: {total_time/60:.1f} minutos")
+    print(f"   • Veículos coletados: {len(veiculos_total)}")
+    print(f"   • Enviados ao Supabase:")
+    print(f"     - Novos: {stats_upload['inserted']}")
+    print(f"     - Atualizados: {stats_upload['updated']}")
+    print(f"     - Erros: {stats_upload['errors']}")
+    print(f"   • Tempo total: {total_time/60:.1f}min")
     print(f"   • Média por marca: {total_time/total_marcas:.1f}s")
-    print(f"💾 JSON salvo em: {OUTPUT_FILE}")
     print(f"{'='*60}")
-    
-    if len(veiculos) > 0:
-        print(f"\n{'='*60}")
-        print("🚀 ENVIANDO PARA SUPABASE...")
-        print(f"{'='*60}")
-        
-        try:
-            client = FipeSupabaseClient()
-            result = client.upsert_vehicles(veiculos)
-            
-            print(f"\n{'='*60}")
-            print(f"✅ UPLOAD CONCLUÍDO")
-            print(f"   • {result['inserted']} novos registros")
-            print(f"   • {result['updated']} atualizados")
-            print(f"   • {result['errors']} erros")
-            print(f"   • Tempo: {result['time_ms']}ms")
-            print(f"{'='*60}")
-            
-        except Exception as e:
-            print(f"❌ Erro ao enviar para Supabase: {e}")
-            print("   (JSON salvo localmente)")
-    else:
-        print("\n⚠️  Nenhum veículo coletado - não enviando para Supabase")
 
 
 if __name__ == "__main__":
