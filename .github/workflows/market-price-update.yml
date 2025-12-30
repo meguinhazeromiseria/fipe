@@ -55,6 +55,7 @@ jobs:
           echo "🔢 Max batches: ${{ github.event.inputs.types_max_batches || '50' }}"
           echo "⏰ Horário: $(date '+%Y-%m-%d %H:%M:%S')"
           echo ""
+          cd scrapers
           python update_vehicle_types.py || echo "⚠️ Alguns erros no update de types, continuando..."
           echo ""
           echo "✅ Step 1 concluído!"
@@ -77,6 +78,7 @@ jobs:
           echo "🔢 Max batches: ${{ github.event.inputs.price_max_batches || '10' }}"
           echo "⏰ Horário: $(date '+%Y-%m-%d %H:%M:%S')"
           echo ""
+          cd scrapers
           python market_price_vehicles_scraper.py
           echo ""
           echo "✅ Step 2 concluído!"
@@ -91,6 +93,7 @@ jobs:
           echo "=================================================="
           echo "📊 STEP 3: Estatísticas Finais"
           echo "=================================================="
+          cd scrapers
           python market_price_supabase_client.py || echo "⚠️ Não foi possível buscar estatísticas"
           echo ""
           echo "✅ Workflow completo!"
