@@ -37,7 +37,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
       
       - name: 📦 Instalar dependências
         run: |
@@ -116,20 +115,4 @@ jobs:
           echo "- Max Batches: ${{ github.event.inputs.price_max_batches || '10' }}" >> $GITHUB_STEP_SUMMARY
           echo "- Total estimado: $(( ${{ github.event.inputs.price_batch_size || '50' }} * ${{ github.event.inputs.price_max_batches || '10' }} )) veículos" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Verifique os logs acima para resultados detalhados de cada step" >> $GITHUB_STEP_SUMMARY
-      
-      - name: 🔔 Notificar em caso de falha
-        if: failure()
-        run: |
-          echo "❌ Workflow falhou!"
-          echo ""
-          echo "Possíveis causas:"
-          echo "- Credenciais do Supabase incorretas (SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY)"
-          echo "- API FIPE fora do ar ou com rate limit"
-          echo "- Problema de conectividade"
-          echo "- Erro no código (vehicle_analyzer, market_price_scraper, etc)"
-          echo ""
-          echo "Verifique os logs de cada step acima para identificar onde falhou"
-          exit 1
+          echo "---" >> $GITHUB_STEP
