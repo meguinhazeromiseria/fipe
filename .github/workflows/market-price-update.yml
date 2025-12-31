@@ -8,14 +8,6 @@ on:
   # Permite executar manualmente
   workflow_dispatch:
     inputs:
-      types_batch_size:
-        description: 'Batch size - Types'
-        required: false
-        default: '100'
-      types_max_batches:
-        description: 'Max batches - Types'
-        required: false
-        default: '50'
       price_batch_size:
         description: 'Batch size - Prices'
         required: false
@@ -43,36 +35,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
       
-      - name: 🏷️ STEP 1 - Atualizar Vehicle Types
+      - name: 💰 Atualizar Market Prices (FIPE)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           echo "=================================================="
-          echo "🏷️  STEP 1: Atualizando Vehicle Types"
-          echo "=================================================="
-          echo "📦 Batch size: ${{ github.event.inputs.types_batch_size || '100' }}"
-          echo "🔢 Max batches: ${{ github.event.inputs.types_max_batches || '50' }}"
-          echo "⏰ Horário: $(date '+%Y-%m-%d %H:%M:%S')"
-          echo ""
-          cd scrapers
-          python update_vehicle_types.py || echo "⚠️ Alguns erros no update de types, continuando..."
-          echo ""
-          echo "✅ Step 1 concluído!"
-          echo ""
-      
-      - name: ⏳ Aguardar entre steps
-        run: |
-          echo "⏳ Aguardando 10 segundos antes do próximo step..."
-          sleep 10
-      
-      - name: 💰 STEP 2 - Atualizar Market Prices (FIPE)
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          echo "=================================================="
-          echo "💰 STEP 2: Buscando Preços na FIPE"
+          echo "💰 Buscando Preços na FIPE"
           echo "=================================================="
           echo "📦 Batch size: ${{ github.event.inputs.price_batch_size || '50' }}"
           echo "🔢 Max batches: ${{ github.event.inputs.price_max_batches || '10' }}"
@@ -81,17 +50,17 @@ jobs:
           cd scrapers
           python market_price_vehicles_scraper.py
           echo ""
-          echo "✅ Step 2 concluído!"
+          echo "✅ Atualização de preços concluída!"
           echo ""
       
-      - name: 📊 STEP 3 - Estatísticas Finais
+      - name: 📊 Estatísticas Finais
         if: always()
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           echo "=================================================="
-          echo "📊 STEP 3: Estatísticas Finais"
+          echo "📊 Estatísticas Finais"
           echo "=================================================="
           cd scrapers
           python market_price_supabase_client.py || echo "⚠️ Não foi possível buscar estatísticas"
@@ -108,19 +77,14 @@ jobs:
           echo "- **Branch:** ${{ github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Commit:** ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "### 🏷️ Step 1 - Vehicle Types" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Batch Size: ${{ github.event.inputs.types_batch_size || '100' }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Max Batches: ${{ github.event.inputs.types_max_batches || '50' }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Total estimado: $(( ${{ github.event.inputs.types_batch_size || '100' }} * ${{ github.event.inputs.types_max_batches || '50' }} )) veículos" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "### 💰 Step 2 - Market Prices" >> "$GITHUB_STEP_SUMMARY"
+          echo "### 💰 Market Prices" >> "$GITHUB_STEP_SUMMARY"
           echo "- Batch Size: ${{ github.event.inputs.price_batch_size || '50' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Max Batches: ${{ github.event.inputs.price_max_batches || '10' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Total estimado: $(( ${{ github.event.inputs.price_batch_size || '50' }} * ${{ github.event.inputs.price_max_batches || '10' }} )) veículos" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "---" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "✅ Verifique os logs acima para resultados detalhados de cada step" >> "$GITHUB_STEP_SUMMARY"
+          echo "✅ Verifique os logs acima para resultados detalhados" >> "$GITHUB_STEP_SUMMARY"
       
       - name: 🔔 Notificar em caso de falha
         if: failure()
@@ -131,7 +95,7 @@ jobs:
           echo "- Credenciais do Supabase incorretas (SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY)"
           echo "- API FIPE fora do ar ou com rate limit"
           echo "- Problema de conectividade"
-          echo "- Erro no código (vehicle_analyzer, market_price_scraper, etc)"
+          echo "- Erro no código (market_price_scraper, etc)"
           echo ""
           echo "Verifique os logs de cada step acima para identificar onde falhou"
           exit 1

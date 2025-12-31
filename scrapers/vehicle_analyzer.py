@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-VEHICLE ANALYZER V2 - MELHORADO
+VEHICLE ANALYZER V3 - CORRIGIDO
 Extrai tipo, marca, modelo e ano de veículos com ALTA PRECISÃO
 """
 
@@ -30,22 +30,23 @@ class VehicleAnalyzer:
         ]
     }
     
-    # MODELOS CONHECIDOS DE CARROS
+    # MODELOS CONHECIDOS DE CARROS (EXPANDIDO)
     CAR_MODELS = [
         # VW
         'GOL', 'VOYAGE', 'POLO', 'FOX', 'UP', 'JETTA', 'PASSAT', 'TIGUAN',
         'T-CROSS', 'NIVUS', 'TAOS', 'FUSCA', 'KOMBI', 'SAVEIRO', 'AMAROK',
-        'VARIANT', 'BRASILIA', 'SANTANA', 'QUANTUM',
+        'VARIANT', 'BRASILIA', 'SANTANA', 'QUANTUM', 'VIRTUS', 'SPACEFOX',
         # Ford
         'KA', 'FIESTA', 'FOCUS', 'FUSION', 'ECOSPORT', 'EDGE', 'RANGER',
         'ESCORT', 'COURIER', 'BELINA', 'DEL REY', 'PAMPA',
         # Fiat
         'UNO', 'PALIO', 'SIENA', 'STRADA', 'TORO', 'ARGO', 'CRONOS', 'MOBI',
         'PULSE', 'FASTBACK', 'DUCATO', 'MAREA', 'TIPO', 'TEMPRA', 'ELBA',
+        'PUNTO', 'TITANO',
         # Chevrolet
         'ONIX', 'PRISMA', 'CRUZE', 'SPIN', 'COBALT', 'S10', 'MONTANA',
         'TRACKER', 'TRAILBLAZER', 'CELTA', 'CORSA', 'ASTRA', 'VECTRA',
-        'ZAFIRA', 'MERIVA', 'CLASSIC', 'AGILE', 'OMEGA',
+        'ZAFIRA', 'MERIVA', 'CLASSIC', 'AGILE', 'OMEGA', 'SONIC',
         # Honda
         'CIVIC', 'FIT', 'CITY', 'ACCORD', 'HR-V', 'WR-V', 'CR-V',
         # Toyota
@@ -53,30 +54,31 @@ class VehicleAnalyzer:
         'PRIUS', 'LAND CRUISER', 'CAMRY', 'BANDEIRANTE',
         # Hyundai
         'HB20', 'CRETA', 'TUCSON', 'SANTA FE', 'ELANTRA', 'AZERA', 'IX35',
-        'I30', 'VELOSTER', 'HR',
+        'I30', 'VELOSTER',
         # Nissan
         'MARCH', 'VERSA', 'KICKS', 'SENTRA', 'FRONTIER', 'LIVINA', 'TIIDA',
         # Renault
         'KWID', 'SANDERO', 'LOGAN', 'DUSTER', 'CAPTUR', 'OROCH', 'FLUENCE',
-        'CLIO', 'MEGANE', 'SCENIC',
+        'CLIO', 'MEGANE', 'SCENIC', 'MASTER',
         # Jeep
         'RENEGADE', 'COMPASS', 'COMMANDER', 'WRANGLER', 'GRAND CHEROKEE',
         # Peugeot
         '206', '207', '208', '2008', '3008', '308', '408', '508', '306', '307', '406',
         # Citroën
-        'C3', 'C4', 'AIRCROSS', 'PICASSO', 'XSARA', 'BERLINGO',
+        'C3', 'C4', 'AIRCROSS', 'PICASSO', 'XSARA', 'BERLINGO', 'CACTUS',
         # Mercedes
         'C180', 'C200', 'C250', 'E200', 'E250', 'GLA', 'GLC', 'CLASSE', 'ACCELO',
         # BMW
-        '320I', '328I', 'X1', 'X3', 'X5', 'X6', 'SERIE',
+        '320I', '328I', 'X1', 'X2', 'X3', 'X5', 'X6', 'SERIE',
         # Mitsubishi
         'OUTLANDER', 'PAJERO', 'ASX', 'L200', 'TRITON',
         # Outros
         'FREELANDER', 'DISCOVERY', 'RANGE ROVER', 'DEFENDER',
-        'SPORTAGE', 'SORENTO', 'SOUL', 'CERATO',
+        'SPORTAGE', 'SORENTO', 'SOUL', 'CERATO', 'RIO',
+        'QQ3', 'CELER', 'CAYENNE', 'A4',
     ]
     
-    # MODELOS CONHECIDOS DE MOTOS
+    # MODELOS CONHECIDOS DE MOTOS (EXPANDIDO)
     MOTO_MODELS = [
         # Honda
         'BIZ', 'POP', 'CG', 'TITAN', 'FAN', 'BROS', 'XRE', 'CB', 'CBR',
@@ -94,29 +96,32 @@ class VehicleAnalyzer:
         'Z650', 'Z400', 'Z300',
         # Harley
         'STREET', 'ROAD', 'SOFTAIL', 'SPORTSTER', 'ELECTRA', 'HERITAGE',
-        'FAT BOY', 'IRON', 'FORTY-EIGHT', 'ULTRA', 'GLIDE',
+        'FAT BOY', 'IRON', 'FORTY-EIGHT', 'ULTRA', 'GLIDE', 'FLSTN',
         # Ducati
         'MONSTER', 'DIAVEL', 'SCRAMBLER', 'PANIGALE', 'MULTISTRADA', 'MTS',
         'HYPERMOTARD', 'SUPERSPORT',
         # Triumph
         'TIGER', 'BONNEVILLE', 'STREET TWIN', 'SPEED TWIN', 'ROCKET',
+        # BMW Motos (IMPORTANTE!)
+        'F800', 'F850', 'R1200', 'R1250', 'S1000', 'G310', 'C650',
         # Outras
         'DOMINAR', 'PULSAR', 'DUKE', 'RC', 'ADVENTURE', 'MAXSYM', 'NEXT',
-        'NH', 'STRADA'
+        'NH', 'KANSAS', 'DR',
     ]
     
-    # MODELOS DE CAMINHÕES
+    # MODELOS DE CAMINHÕES/PICKUPS
     TRUCK_MODELS = [
         'TECTOR', 'STRALIS', 'ATEGO', 'ACCELO', 'FH', 'FM', 'VM',
         'CONSTELLATION', 'METEOR', 'CARGO', 'WORKER', 'DELIVERY',
-        'R440', 'R450', 'R500', 'P360', 'G420', 'EURO',
+        'R440', 'R450', 'R500', 'R540', 'P360', 'G420', 'G480', 'G500', 'EURO',
+        'AXOR', 'ATRON', 'DAILY', 'SPRINTER',
     ]
     
     # PALAVRAS-CHAVE ESPECÍFICAS (ordem importa!)
     VEHICLE_KEYWORDS = {
         'motos': [
             # Cilindradas (forte indicador)
-            r'\b(125|150|160|190|200|250|300|400|500|600|650|750|800|1000|1100|1200|1300)CC?\b',
+            r'\b(110|125|150|160|190|200|250|300|400|500|600|650|750|800|1000|1100|1200|1300)CC?\b',
             r'\bCILINDRADA\b',
             # Termos exclusivos de motos
             r'\bMOTO(CICLETA)?\b',
@@ -124,17 +129,25 @@ class VehicleAnalyzer:
             r'\bCICLOMOTOR\b',
         ],
         'caminhoes': [
-            r'\bCAMINH[AÃ]O\b',
+            r'\bCAMINH[AÃƒ]O\b',
             r'\bTRUCK\b',
             r'\bBITRUCK\b',
             r'\bRODOTREM\b',
             r'\bTRATOR\b',
-            r'\bCAMINHONETE\b',
+            r'\bCAVALO\s+MEC[AÂ]NICO\b',
+            r'\bBASCULANTE\b',
+            r'\bBAU\b',
+            r'\bBAÚ\b',
+            r'\bTANQUE\b',
+            r'\bCOMPACTADOR\b',
+            r'\bGUREIRA\b',
             r'\b(4X2|6X2|6X4|8X2|8X4)\b',
         ],
         'onibus': [
-            r'\b[ÔO]NIBUS\b',
-            r'\bMICRO[\s\-]*[ÔO]NIBUS\b',
+            r'\b[Ã"O]NIBUS\b',
+            r'\bMICRO[\s\-]*[Ã"O]NIBUS\b',
+            r'\bURBANO\b',
+            r'\bESCOLAR\b',
         ],
         'implementos': [
             r'\bREBOQUE\b',
@@ -142,24 +155,27 @@ class VehicleAnalyzer:
             r'\bSEMI[\s\-]*REBOQUE\b',
             r'\bTRAILER\b',
             r'\bIMPLEMENTO\b',
+            r'\bSIDER\b',
         ],
         'embarcacoes': [
             r'\bBARCO\b',
             r'\bLANCHA\b',
             r'\bJET[\s\-]*SKI\b',
-            r'\bMOTO\s*AQU[AÁ]TICA\b',
-            r'\bEMBARCA[ÇC][AÃ]O\b',
+            r'\bMOTO\s*AQU[AÃ]TICA\b',
+            r'\bEMBARCA[Ã‡C][AÃƒ]O\b',
             r'\bIATE\b',
             r'\bVELEIRO\b',
         ],
         'aeronaves': [
-            r'\bAVI[AÃ]O\b',
+            r'\bAVI[AÃƒ]O\b',
             r'\bAERONAVE\b',
-            r'\bHELIC[ÓO]PTERO\b',
+            r'\bHELIC[Ã"O]PTERO\b',
             r'\bULTRALEVE\b',
+            r'\bFAROL.*LANDING\b',
+            r'\bANEL\s+DE\s+AERONAVE\b',
         ],
         'carros': [
-            r'\bAUTOM[ÓO]VEL\b',
+            r'\bAUTOM[Ã"O]VEL\b',
             r'\bSEDAN\b',
             r'\bHATCH\b',
             r'\bSUV\b',
@@ -179,6 +195,12 @@ class VehicleAnalyzer:
         'MERCEDES-BENZ': ['carros', 'caminhoes'],
         'MERCEDES': ['carros', 'caminhoes'],
         'VOLVO': ['carros', 'caminhoes'],
+        'FIAT': ['carros', 'caminhoes'],
+        'TOYOTA': ['carros', 'caminhoes'],
+        'NISSAN': ['carros', 'caminhoes'],
+        'RENAULT': ['carros', 'caminhoes'],
+        'CHEVROLET': ['carros', 'caminhoes'],
+        'HYUNDAI': ['carros', 'caminhoes'],
     }
     
     def __init__(self):
@@ -238,21 +260,34 @@ class VehicleAnalyzer:
         Detecta tipo de veículo com ALTA PRECISÃO
         
         ORDEM DE PRIORIDADE:
-        1. Marcas exclusivas
-        2. Modelos conhecidos
+        1. Keywords específicas mais fortes (embarcações, aeronaves, implementos, ônibus)
+        2. Marcas exclusivas
         3. Cilindradas (motos)
-        4. Keywords específicas
-        5. Default: carros
+        4. Modelos conhecidos
+        5. Keywords de caminhões
+        6. Keywords de carros/motos
+        7. Default: carros
         """
         text = f"{title} {description}".upper()
         
-        # 1. MARCAS EXCLUSIVAS (máxima prioridade)
+        # 1. KEYWORDS SUPER ESPECÍFICAS (máxima prioridade)
+        for vtype in ['embarcacoes', 'aeronaves', 'implementos', 'onibus']:
+            if vtype in self.compiled_keywords:
+                for pattern in self.compiled_keywords[vtype]:
+                    if pattern.search(text):
+                        return vtype
+        
+        # 2. MARCAS EXCLUSIVAS
         for vtype, brands in self.EXCLUSIVE_BRANDS.items():
             for brand in brands:
                 if brand in text:
                     return vtype
         
-        # 2. MARCAS AMBÍGUAS - precisa desambiguar
+        # 3. CILINDRADAS (forte indicador de moto) - ANTES de marcas ambíguas
+        if re.search(r'\b(110|125|150|160|190|200|250|300|400|500|600|650|750|800|1000|1100|1200|1300)CC?\b', text):
+            return 'motos'
+        
+        # 4. MARCAS AMBÍGUAS - desambiguar por modelo
         detected_ambiguous = None
         for brand, vtypes in self.AMBIGUOUS_BRANDS.items():
             if brand in text:
@@ -263,38 +298,38 @@ class VehicleAnalyzer:
             # Verifica modelos para desambiguar
             if self._has_moto_model(text):
                 return 'motos'
-            elif self._has_car_model(text):
-                return 'carros'
             elif self._has_truck_model(text):
                 return 'caminhoes'
+            elif self._has_car_model(text):
+                return 'carros'
         
-        # 3. MODELOS CONHECIDOS
+        # 5. MODELOS CONHECIDOS (sem marca ambígua detectada)
         if self._has_moto_model(text):
             return 'motos'
-        if self._has_car_model(text):
-            return 'carros'
         if self._has_truck_model(text):
             return 'caminhoes'
+        if self._has_car_model(text):
+            return 'carros'
         
-        # 4. CILINDRADAS (forte indicador de moto)
-        if re.search(r'\b(125|150|160|190|200|250|300|400|500|600|650|750|800|1000|1100|1200|1300)CC?\b', text):
-            return 'motos'
+        # 6. KEYWORDS DE CAMINHÕES (antes de carros)
+        if 'caminhoes' in self.compiled_keywords:
+            for pattern in self.compiled_keywords['caminhoes']:
+                if pattern.search(text):
+                    return 'caminhoes'
         
-        # 5. KEYWORDS ESPECÍFICAS (ordem importa!)
-        # Checa tipos mais específicos primeiro
-        for vtype in ['embarcacoes', 'aeronaves', 'implementos', 'onibus', 'caminhoes', 'motos']:
-            if vtype in self.compiled_keywords:
-                for pattern in self.compiled_keywords[vtype]:
-                    if pattern.search(text):
-                        return vtype
+        # 7. KEYWORDS DE MOTOS
+        if 'motos' in self.compiled_keywords:
+            for pattern in self.compiled_keywords['motos']:
+                if pattern.search(text):
+                    return 'motos'
         
-        # 6. Checa keywords de carros
+        # 8. KEYWORDS DE CARROS
         if 'carros' in self.compiled_keywords:
             for pattern in self.compiled_keywords['carros']:
                 if pattern.search(text):
                     return 'carros'
         
-        # 7. DEFAULT: carros
+        # 9. DEFAULT: carros
         return 'carros'
     
     def _has_moto_model(self, text: str) -> bool:
@@ -348,7 +383,7 @@ class VehicleAnalyzer:
         car_brands = [
             'CHERY', 'CAOA', 'JAC', 'LIFAN', 'BYD', 'GWM',
             'NISSAN', 'RENAULT', 'PEUGEOT', 'CITROEN',
-            'JEEP', 'MITSUBISHI', 'KIA',
+            'JEEP', 'MITSUBISHI', 'KIA', 'KIA MOTORS',
             'LAND ROVER', 'AUDI', 'PORSCHE', 'MAZDA', 'SUBARU',
             'CHEVROLET', 'FIAT', 'TOYOTA', 'HYUNDAI'
         ]
@@ -414,32 +449,41 @@ class VehicleAnalyzer:
 
 if __name__ == "__main__":
     print("="*60)
-    print("🧪 TESTE VEHICLE ANALYZER V2 - MELHORADO")
+    print("🧪 TESTE VEHICLE ANALYZER V3 - CORRIGIDO")
     print("="*60)
     
     analyzer = VehicleAnalyzer()
     
-    # Casos de teste (incluindo os problemáticos)
+    # Casos de teste (incluindo os problemáticos do log)
     test_cases = [
-        {'title': 'Ford Ka Flex', 'description': 'Carro Ford Ka 2015'},
-        {'title': 'Volkswagen Gol 1.6 Power', 'description': 'Gol 2012'},
-        {'title': 'Fiat Strada Endurance CS', 'description': 'Pickup Strada'},
-        {'title': 'Volkswagen Fusca', 'description': 'Fusca 1978 azul'},
-        {'title': 'Bajaj Dominar NS 160', 'description': 'Moto 160cc'},
-        {'title': 'Ducati MTS 1200 S', 'description': 'Multistrada 1200'},
-        {'title': 'Honda Pop 110i', 'description': 'Moto Honda Pop'},
-        {'title': 'Honda Civic EXR', 'description': 'Civic sedan'},
-        {'title': 'Yamaha Factor 150', 'description': 'Moto 150cc'},
-        {'title': 'Mercedes-Benz Accelo 1117', 'description': 'Caminhão baú'},
-        {'title': 'Scania R450', 'description': 'Caminhão trucado'},
-        {'title': 'Honda Biz 125', 'description': 'Scooter 125cc'},
-        {'title': 'BMW F800 GS', 'description': 'Moto BMW adventure'},
+        {'title': 'BMW F800 R', 'description': 'Moto BMW'},
+        {'title': 'BMW F800 GS', 'description': 'Moto adventure'},
+        {'title': 'BMW S1000 RR', 'description': 'Moto esportiva'},
+        {'title': 'BMW R1200 GS', 'description': 'Moto BMW adventure'},
         {'title': 'BMW 328i Active Flex', 'description': 'Sedan BMW'},
-        {'title': 'Iveco Daily 35s14', 'description': 'Van'},
-        {'title': 'Volvo FH 460', 'description': 'Caminhão'},
-        {'title': 'Rodofort SA SRPC 3E', 'description': 'Carreta'},
-        {'title': 'Chevrolet Onix', 'description': 'Hatch'},
-        {'title': 'Hyundai Creta', 'description': 'SUV'},
+        {'title': 'BMW 320i', 'description': 'Carro'},
+        {'title': 'Honda Biz 125', 'description': 'Moto 125cc'},
+        {'title': 'Honda Pop 110i', 'description': 'Moto Honda'},
+        {'title': 'Honda Civic EXR', 'description': 'Sedan'},
+        {'title': 'Ford Ka SE 1.5', 'description': 'Hatch'},
+        {'title': 'VW Polo 1.6', 'description': 'Carro'},
+        {'title': 'VW Fox 1.0', 'description': 'Hatch'},
+        {'title': 'Fiat Uno Vivace', 'description': 'Carro'},
+        {'title': 'Chevrolet Celta 4p', 'description': 'Hatch'},
+        {'title': 'Chevrolet Onix 1.0', 'description': 'Carro'},
+        {'title': 'Chevrolet Corsa Sedan', 'description': 'Sedan'},
+        {'title': 'Fiat Siena', 'description': 'Sedan'},
+        {'title': 'Fiat Strada Endurance', 'description': 'Pickup'},
+        {'title': 'Toyota Hilux CD', 'description': 'Pickup'},
+        {'title': 'Hyundai Creta 1.6', 'description': 'SUV'},
+        {'title': 'Renault Megane GT', 'description': 'Sedan'},
+        {'title': 'Citroen C3 Excl', 'description': 'Hatch'},
+        {'title': 'Mercedes-Benz Accelo 1117', 'description': 'Caminhão baú'},
+        {'title': 'Scania R450', 'description': 'Caminhão'},
+        {'title': 'Volvo FH 460 6x2', 'description': 'Caminhão'},
+        {'title': 'Yamaha Factor 150', 'description': 'Moto 150cc'},
+        {'title': 'Bajaj Dominar D400', 'description': 'Moto'},
+        {'title': 'Ducati MTS 1200', 'description': 'Moto'},
     ]
     
     print("\n")
@@ -451,32 +495,31 @@ if __name__ == "__main__":
         
         # Determina tipo esperado
         title_lower = title.lower()
-        if 'bajaj' in title_lower or 'ducati' in title_lower or 'factor' in title_lower or 'pop' in title_lower or 'biz' in title_lower or 'f800' in title_lower:
+        desc_lower = test['description'].lower()
+        
+        if any(x in title_lower + desc_lower for x in ['biz', 'pop', 'factor', 'bajaj', 'ducati', 'yamaha', 'f800', 'r1200', 's1000', 'moto']):
             expected = 'motos'
-        elif 'accelo' in title_lower or 'scania' in title_lower or 'fh 460' in title_lower or 'daily' in title_lower:
+        elif any(x in title_lower + desc_lower for x in ['accelo', 'scania', 'volvo fh', 'caminhão', 'caminhao']):
             expected = 'caminhoes'
-        elif 'rodofort' in title_lower:
-            expected = 'implementos'
         else:
             expected = 'carros'
         
         # Emoji
-        if vtype == 'carros':
-            emoji = '🚗'
-        elif vtype == 'motos':
-            emoji = '🏍️'
-        elif vtype == 'caminhoes':
-            emoji = '🚚'
-        elif vtype == 'implementos':
-            emoji = '🚛'
-        else:
-            emoji = '🚙'
+        emoji_map = {
+            'carros': '🚗',
+            'motos': '🏍️',
+            'caminhoes': '🚚',
+            'implementos': '🚛',
+            'onibus': '🚌',
+        }
+        emoji = emoji_map.get(vtype, '🚙')
         
         status = '✅' if vtype == expected else '❌'
         if vtype != expected:
             errors += 1
-        
-        print(f"{emoji} {status} [{i:2d}] {title:40s} → {vtype}")
+            print(f"{emoji} {status} [{i:2d}] {title:40s} → {vtype} (esperado: {expected})")
+        else:
+            print(f"{emoji} {status} [{i:2d}] {title:40s} → {vtype}")
     
     print("\n" + "="*60)
     print(f"{'✅ PERFEITO!' if errors == 0 else f'❌ {errors} erros encontrados'}")
